@@ -1,0 +1,91 @@
+---
+title: "Untitled"
+author: "jia nie"
+date: "12/15/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Get the pacakges
+```{r,include=FALSE}
+packageList <- c("ggplot2","dplyr", "tidyverse")
+for(package in packageList){
+  if(!require(package,character.only = TRUE)){
+    install.packages(package);require(package,character.only = TRUE);}
+    }
+```
+
+# 
+Variables are:
+```{r}
+dat1 <- readRDS("county_top_death_final.RDS")
+dat1$CTYNAME <- ifelse(dat1$fips == "35013", "Dona Ana County", dat1$CTYNAME) # fix "Do�a Ana County", "Doña Ana County"
+
+# use map data from ggplot
+us_county <- ggplot2::map_data("county")
+maps::county.fips %>%
+  as.tibble %>% 
+  extract(polyname, c("region", "subregion"), "^([^,]+),([^,]+)$") ->
+  dfips
+map_data("county") %>% 
+  left_join(dfips)  ->
+  us_county
+
+length(setdiff(us_county$fips, dat1$fips)) # check matched counties
+length(setdiff(dat1$fips, us_county$fips)) # check matched counties
+us_county$fips <- str_pad(us_county$fips, 5, pad = "0") # need some adjust on fips
+length(setdiff(us_county$fips, dat1$fips))
+length(setdiff(dat1$fips, us_county$fips)) # find Hawaii not in there 
+
+
+# choose other map package
+devtools::install_github("UrbanInstitute/urbnmapr") # https://urbaninstitute.github.io/urbnmapr/
+library(tidyverse)
+library(urbnmapr)
+counties_sf <- get_urbn_map("territories_counties", sf = TRUE)
+counties_sf %>% 
+  ggplot(aes()) +
+  geom_sf(fill = "grey", color = "#ffffff")
+length(setdiff(dat1$fips, counties_sf$county_fips)) # "99999" which add by marcro
+
+us_county_dat1 <- left_join(counties_sf, dat1 , by = c("county_fips" = "fips"))
+
+```
+
+
+```{r}
+p <- us_county_dat1 %>%
+  ggplot() +
+  geom_sf(mapping = aes(fill = percap_death_pk),
+          color = "#ffffff", size = 0.05) +
+  scale_fill_continuous(low="green",  high="red", 
+                       guide="colorbar", na.value="lightgray")+
+  labs(fill = "percap_death_pk") +
+  coord_sf(datum = NA) + 
+  theme_minimal() + 
+  theme(aspect.ratio = 0.6) 
+p
+ggsave(filename = "C:/Users/niej/Documents/2021-08-23 Certificate in Biomedical Data Science/Spring TSCI 6201 Data Science Leadership/question1.png", plot = p, dpi = 600, width = 7, height = 5)
+
+p <- us_county_dat1 %>%
+  ggplot() +
+  geom_sf(mapping = aes(fill = percap_death_pk),
+          color = "#ffffff", size = 0.05) +
+  geom_sf_text(aes(label = CTYNAME), size = 0.15) + 
+  scale_fill_continuous(low="green",  high="red", 
+                       guide="colorbar", na.value="lightgray")+
+  labs(fill = "percap_death_pk") +
+  coord_sf(datum = NA) + 
+  theme_minimal() + 
+  theme(aspect.ratio = 0.6,
+        axis.title.x = element_blank(),
+        axis.title.y = element_blank()) 
+p
+ggsave(filename = "C:/Users/niej/Documents/2021-08-23 Certificate in Biomedical Data Science/Spring TSCI 6201 Data Science Leadership/question1.with label.png", plot = p, dpi = 3000, width = 7, height = 5)
+```
+
+
